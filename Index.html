@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1c2b3a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Asistencia">
+<title>Registro de asistencia</title>
+<style>
+  :root{
+    --ink:#1c2b3a; --paper:#f4f2ec; --card:#ffffff; --line:#dcd8cc;
+    --stamp:#b3492b; --stamp-dark:#8a3520; --gold:#b3892f; --muted:#6b6459;
+    --good:#2f6b4f;
+
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;}
+  .wrap{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:var(--paper);color:var(--ink);padding:1rem;max-width:480px;margin:0 auto;}
+  .head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:1rem;border-bottom:2px solid var(--ink);padding-bottom:.6rem;}
+  .head h1{font-size:19px;font-weight:700;margin:0;letter-spacing:.2px;}
+  .head .sub{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;}
+  .clock{font-variant-numeric:tabular-nums;font-size:13px;color:var(--muted);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:1rem;margin-bottom:.9rem;}
+  .card h2{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 .7rem;font-weight:700;}
+  .row{display:flex;gap:.6rem;margin-bottom:.6rem;}
+  .field{flex:1;display:flex;flex-direction:column;gap:.25rem;}
+  .field label{font-size:11px;color:var(--muted);}
+  .field input{border:1px solid var(--line);border-radius:8px;padding:.55rem .6rem;font-size:15px;background:#fff;color:var(--ink);width:100%;}
+  .field input:focus{outline:2px solid var(--gold);outline-offset:1px;}
+  .btnrow{display:flex;gap:.6rem;margin-top:.3rem;}
+  button{font-family:inherit;font-size:14px;font-weight:700;border-radius:8px;padding:.7rem 1rem;border:none;cursor:pointer;}
+  .btn-stamp{background:var(--stamp);color:#fff;flex:1;}
+  .btn-stamp:active{background:var(--stamp-dark);}
+  .btn-ghost{background:transparent;border:1px solid var(--line);color:var(--ink);}
+  .btn-ghost:active{background:var(--paper);}
+  .quick{display:flex;gap:.6rem;}
+  .quick button{flex:1;padding:1rem .5rem;font-size:14px;}
+  .quick .in{background:var(--good);color:#fff;}
+  .quick .out{background:var(--ink);color:#fff;}
+  .quick button:active{opacity:.85;}
+  .today{font-size:13px;color:var(--muted);margin-top:.6rem;display:flex;justify-content:space-between;}
+  .today b{color:var(--ink);font-variant-numeric:tabular-nums;}
+  .log{display:flex;flex-direction:column;gap:.5rem;}
+  .entry{display:flex;align-items:center;justify-content:space-between;border:1px solid var(--line);border-radius:8px;padding:.55rem .7rem;font-size:13px;}
+  .entry .d{font-weight:700;}
+  .entry .t{color:var(--muted);font-variant-numeric:tabular-nums;}
+  .entry .del{background:none;border:none;color:var(--stamp);font-size:16px;padding:0 .3rem;font-weight:700;}
+  .empty{font-size:13px;color:var(--muted);text-align:center;padding:1rem 0;}
+  .export{width:100%;background:var(--gold);color:#fff;margin-bottom:.5rem;}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:.4rem;}
+  .toast{position:sticky;bottom:.5rem;background:var(--ink);color:#fff;font-size:13px;text-align:center;padding:.55rem;border-radius:8px;margin-top:.6rem;display:none;}
+</style>
+</head>
+<body style="margin:0;background:var(--paper);min-height:100vh;">
+
+<div class="wrap">
+  <div class="head">
+    <div>
+      <h1>Registro de asistencia</h1>
+      <div class="sub">Entrada / salida diaria</div>
+    </div>
+    <div style="text-align:right;">
+      <div class="clock" id="clock"></div>
+      <div id="syncStatus" style="font-size:10px;color:var(--muted);margin-top:2px;">verificando...</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Marcar ahora</h2>
+    <div class="quick">
+      <button class="in" id="btnIn">Marcar entrada</button>
+      <button class="out" id="btnOut">Marcar salida</button>
+    </div>
+    <div class="today" id="todayStatus"></div>
+  </div>
+
+  <div class="card">
+    <h2>Corregir o cargar un día anterior</h2>
+    <div class="row">
+      <div class="field">
+        <label for="fecha">Fecha</label>
+        <input type="date" id="fecha">
+      </div>
+    </div>
+    <div class="row">
+      <div class="field">
+        <label for="entrada">Entrada</label>
+        <input type="time" id="entrada">
+      </div>
+      <div class="field">
+        <label for="salida">Salida</label>
+        <input type="time" id="salida">
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="btn-stamp" id="btnGuardar">Guardar día</button>
+      <button class="btn-ghost" id="btnLimpiar">Limpiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Últimos registros</h2>
+    <div class="log" id="log"></div>
+  </div>
+
+  <button class="export" id="btnExport">Copiar registros para Excel</button>
+  <button class="btn-ghost" id="btnSync" style="width:100%;margin-bottom:.5rem;">Reintentar sincronización</button>
+  <div class="hint">Copia Fecha, Hora Entrada y Hora Salida de todos tus registros. Pégalo donde quieras (por ejemplo, en un Excel aparte) y de ahí lo pasas a tu hoja principal.</div>
+  <textarea id="exportText" readonly style="display:none;width:100%;min-height:110px;margin-top:.5rem;border:1px solid var(--line);border-radius:8px;padding:.6rem;font-size:13px;font-family:monospace;background:#fff;color:var(--ink);"></textarea>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+(function(){
+  const clockEl = document.getElementById('clock');
+  function tickClock(){
+    const now = new Date();
+    clockEl.textContent = now.toLocaleTimeString('es-PE',{hour:'2-digit',minute:'2-digit'});
+  }
+  tickClock(); setInterval(tickClock, 15000);
+
+  const fechaEl = document.getElementById('fecha');
+  const entradaEl = document.getElementById('entrada');
+  const salidaEl = document.getElementById('salida');
+  const logEl = document.getElementById('log');
+  const todayStatusEl = document.getElementById('todayStatus');
+  const toastEl = document.getElementById('toast');
+  const exportBoxEl = document.getElementById('exportText');
+  const exportTextEl = exportBoxEl;
+
+  function todayISO(){
+    const d = new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
+  function nowHM(){
+    const d = new Date();
+    return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0');
+  }
+  function fmtFecha(iso){
+    const [y,m,d] = iso.split('-');
+    return d+'/'+m+'/'+y;
+  }
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.style.display = 'block';
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>{ toastEl.style.display='none'; }, 2200);
+  }
+
+  fechaEl.value = todayISO();
+
+  // ---- Conexión a Firebase Realtime Database ----
+  const FIREBASE_URL = 'https://registro-asistencia-200db-default-rtdb.firebaseio.com';
+  const LOCAL_KEY = 'registro_asistencia_backup';
+
+  let records = {};
+  let synced = true;
+
+  function saveLocalBackup(){
+    try{ localStorage.setItem(LOCAL_KEY, JSON.stringify(records)); }catch(e){}
+  }
+  function loadLocalBackup(){
+    try{
+      const raw = localStorage.getItem(LOCAL_KEY);
+      if(raw) records = JSON.parse(raw);
+    }catch(e){}
+  }
+
+  async function loadAll(){
+    loadLocalBackup();
+    render();
+    try{
+      const res = await fetch(FIREBASE_URL + '/registros.json');
+      if(res.ok){
+        const data = await res.json();
+        if(data){
+          records = data;
+          saveLocalBackup();
+        }
+        synced = true;
+      } else {
+        synced = false;
+      }
+    }catch(e){
+      synced = false;
+    }
+    render();
+  }
+
+  async function saveRecord(rec){
+    records[rec.fecha] = rec;
+    saveLocalBackup();
+    render();
+    const key = rec.fecha;
+    try{
+      const res = await fetch(FIREBASE_URL + '/registros/' + key + '.json', {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(rec)
+      });
+      if(!res.ok) throw new Error('fallo');
+      synced = true;
+    }catch(e){
+      synced = false;
+      showToast('Guardado en el celular. Se sincronizará cuando haya internet.');
+    }
+    render();
+  }
+
+  async function deleteRecord(fecha){
+    delete records[fecha];
+    saveLocalBackup();
+    render();
+    try{
+      await fetch(FIREBASE_URL + '/registros/' + fecha + '.json', { method:'DELETE' });
+    }catch(e){
+      showToast('Se eliminó en el celular, pero no se pudo sincronizar todavía.');
+    }
+  }
+
+  async function syncPending(){
+    try{
+      const res = await fetch(FIREBASE_URL + '/registros.json', {
+        method: 'PUT',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify(records)
+      });
+      if(res.ok){ synced = true; showToast('Sincronizado con la nube.'); }
+      else { synced = false; showToast('No se pudo sincronizar todavía.'); }
+    }catch(e){
+      synced = false;
+      showToast('Sin conexión. Se reintentará más tarde.');
+    }
+    render();
+  }
+
+  function render(){
+    const syncEl = document.getElementById('syncStatus');
+    if(synced){
+      syncEl.textContent = '☁ Sincronizado';
+      syncEl.style.color = 'var(--good)';
+    } else {
+      syncEl.textContent = '⚠ Guardado solo en el celular';
+      syncEl.style.color = 'var(--stamp)';
+    }
+    const dates = Object.keys(records).sort().reverse();
+    if(dates.length === 0){
+      logEl.innerHTML = '<div class="empty">Aún no hay registros guardados.</div>';
+    } else {
+      logEl.innerHTML = dates.slice(0,14).map(f=>{
+        const r = records[f];
+        return '<div class="entry">'
+          + '<div><span class="d">'+fmtFecha(f)+'</span></div>'
+          + '<div class="t">'+(r.entrada||'--:--')+' &rarr; '+(r.salida||'--:--')+'</div>'
+          + '<button class="del" data-f="'+f+'" aria-label="Eliminar">&times;</button>'
+          + '</div>';
+      }).join('');
+    }
+    const tISO = todayISO();
+    const t = records[tISO];
+    if(t && t.entrada && t.salida){
+      todayStatusEl.innerHTML = 'Hoy: <b>'+t.entrada+'</b> a <b>'+t.salida+'</b>';
+    } else if(t && t.entrada){
+      todayStatusEl.innerHTML = 'Hoy: entrada <b>'+t.entrada+'</b>, falta marcar salida';
+    } else {
+      todayStatusEl.innerHTML = 'Hoy: sin marcar todavía';
+    }
+    document.querySelectorAll('.del').forEach(btn=>{
+      btn.onclick = ()=> deleteRecord(btn.dataset.f);
+    });
+  }
+
+  document.getElementById('btnIn').onclick = ()=>{
+    const f = todayISO();
+    const rec = records[f] || {fecha:f};
+    rec.entrada = nowHM();
+    saveRecord(rec);
+    showToast('Entrada marcada: '+rec.entrada);
+  };
+
+  document.getElementById('btnOut').onclick = ()=>{
+    const f = todayISO();
+    const rec = records[f] || {fecha:f};
+    rec.salida = nowHM();
+    saveRecord(rec);
+    showToast('Salida marcada: '+rec.salida);
+  };
+
+  document.getElementById('btnGuardar').onclick = ()=>{
+    const f = fechaEl.value;
+    if(!f){ showToast('Elige una fecha primero.'); return; }
+    const rec = {fecha:f, entrada: entradaEl.value || '', salida: salidaEl.value || ''};
+    saveRecord(rec);
+    showToast('Guardado '+fmtFecha(f));
+  };
+
+  document.getElementById('btnLimpiar').onclick = ()=>{
+    entradaEl.value = '';
+    salidaEl.value = '';
+  };
+
+  document.getElementById('btnExport').onclick = async ()=>{
+    const dates = Object.keys(records).sort();
+    if(dates.length === 0){ showToast('No hay nada que copiar todavía.'); return; }
+
+    const text = dates.map(f=>{
+      const r = records[f];
+      return fmtFecha(f) + '\t' + (r.entrada||'') + '\t' + (r.salida||'');
+    }).join('\n');
+
+    let copied = false;
+    if(navigator.clipboard && window.isSecureContext){
+      try{
+        await navigator.clipboard.writeText(text);
+        copied = true;
+      }catch(e){}
+    }
+    if(!copied){
+      try{
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        ta.style.top = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ta.setSelectionRange(0, text.length);
+        copied = document.execCommand('copy');
+        document.body.removeChild(ta);
+      }catch(e){ copied = false; }
+    }
+
+    if(copied){
+      showToast('Copiado: '+dates.length+' registros.');
+    } else {
+      exportBoxEl.style.display = 'block';
+      exportTextEl.value = text;
+      exportTextEl.focus();
+      exportTextEl.select();
+      showToast('No se pudo copiar solo. Selecciona el texto de abajo.');
+    }
+  };
+
+  document.getElementById('btnSync').onclick = syncPending;
+
+  loadAll();
+})();
+</script>
+</body>
+</html>
