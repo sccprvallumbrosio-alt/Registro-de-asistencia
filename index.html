@@ -9,6 +9,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Asistencia">
 <title>Registro de asistencia</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
   :root{
     --ink:#1c2b3a; --paper:#f4f2ec; --card:#ffffff; --line:#dcd8cc;
@@ -107,6 +108,7 @@
   </div>
 
   <button class="export" id="btnExport">Copiar registros para Excel</button>
+  <button class="btn-stamp" id="btnDescargarExcel" style="width:100%;margin-bottom:.5rem;">⬇ Descargar Excel (.xlsx)</button>
   <button class="btn-ghost" id="btnSync" style="width:100%;margin-bottom:.5rem;">Reintentar sincronización</button>
   <div class="hint">Copia Fecha, Hora Entrada y Hora Salida de todos tus registros. Pégalo donde quieras (por ejemplo, en un Excel aparte) y de ahí lo pasas a tu hoja principal.</div>
   <textarea id="exportText" readonly style="display:none;width:100%;min-height:110px;margin-top:.5rem;border:1px solid var(--line);border-radius:8px;padding:.6rem;font-size:13px;font-family:monospace;background:#fff;color:var(--ink);"></textarea>
@@ -171,16 +173,22 @@
 
   async function loadAll(){
     loadLocalBackup();
+    const localRecords = Object.assign({}, records);
     render();
     try{
       const res = await fetch(FIREBASE_URL + '/registros.json');
       if(res.ok){
         const data = await res.json();
-        if(data){
-          records = data;
-          saveLocalBackup();
-        }
+        // Fusiona: la nube no borra lo que solo existe en local (evita pérdida de datos)
+        records = Object.assign({}, localRecords, data || {});
+        saveLocalBackup();
         synced = true;
+        // Vuelve a subir por si había registros locales que nunca llegaron a la nube
+        const hadLocalOnly = Object.keys(localRecords).some(f => !(data && data[f]));
+        if(hadLocalOnly){
+          await syncPending();
+          return;
+        }
       } else {
         synced = false;
       }
@@ -346,6 +354,29 @@
   };
 
   document.getElementById('btnSync').onclick = syncPending;
+
+  document.getElementById('btnDescargarExcel').onclick = function(){
+    const dates = Object.keys(records).sort();
+    if(dates.length === 0){ showToast('No hay nada que descargar todavía.'); return; }
+    if(typeof XLSX === 'undefined'){
+      showToast('No se pudo cargar el generador de Excel. Revisa tu conexión.');
+      return;
+    }
+    const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
+    const rows = [["Fecha","Día","Hora Entrada","Hora Salida"]];
+    dates.forEach(f=>{
+      const r = records[f];
+      const d = new Date(f + 'T00:00:00');
+      rows.push([fmtFecha(f), diasSemana[d.getDay()], r.entrada || '', r.salida || '']);
+    });
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:12}];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Registro");
+    const hoy = todayISO();
+    XLSX.writeFile(wb, 'registro_asistencia_' + hoy + '.xlsx');
+    showToast('Descargando: ' + dates.length + ' registros.');
+  };
 
   loadAll();
 })();
