@@ -71,9 +71,13 @@
 
   <div class="card">
     <h2>Marcar ahora</h2>
+    <div class="quick" style="margin-bottom:.5rem;">
+      <button class="in" id="btnIn1">Entrada</button>
+      <button class="out" id="btnOut1">Salida (break)</button>
+    </div>
     <div class="quick">
-      <button class="in" id="btnIn">Marcar entrada</button>
-      <button class="out" id="btnOut">Marcar salida</button>
+      <button class="in" id="btnIn2">Retorno break</button>
+      <button class="out" id="btnOut2">Salida final</button>
     </div>
     <div class="today" id="todayStatus"></div>
   </div>
@@ -88,15 +92,26 @@
     </div>
     <div class="row">
       <div class="field">
-        <label for="entrada">Entrada</label>
-        <input type="time" id="entrada">
+        <label for="entrada1">Entrada</label>
+        <input type="time" id="entrada1">
       </div>
       <div class="field">
-        <label for="salida">Salida</label>
-        <input type="time" id="salida">
+        <label for="salida1">Salida (break)</label>
+        <input type="time" id="salida1">
       </div>
     </div>
-    <div class="btnrow">
+    <div class="row">
+      <div class="field">
+        <label for="entrada2">Retorno break</label>
+        <input type="time" id="entrada2">
+      </div>
+      <div class="field">
+        <label for="salida2">Salida final</label>
+        <input type="time" id="salida2">
+      </div>
+    </div>
+    <div class="hint">Si ese día no tuviste break, deja "Salida (break)" y "Retorno break" vacíos, y solo llena Entrada y Salida final.</div>
+    <div class="btnrow" style="margin-top:.5rem;">
       <button class="btn-stamp" id="btnGuardar">Guardar día</button>
       <button class="btn-ghost" id="btnLimpiar">Limpiar</button>
     </div>
@@ -125,8 +140,10 @@
   tickClock(); setInterval(tickClock, 15000);
 
   const fechaEl = document.getElementById('fecha');
-  const entradaEl = document.getElementById('entrada');
-  const salidaEl = document.getElementById('salida');
+  const entrada1El = document.getElementById('entrada1');
+  const salida1El = document.getElementById('salida1');
+  const entrada2El = document.getElementById('entrada2');
+  const salida2El = document.getElementById('salida2');
   const logEl = document.getElementById('log');
   const todayStatusEl = document.getElementById('todayStatus');
   const toastEl = document.getElementById('toast');
@@ -260,19 +277,23 @@
     } else {
       logEl.innerHTML = dates.slice(0,14).map(f=>{
         const r = records[f];
+        const tramo1 = (r.entrada1||'--:--') + ' &rarr; ' + (r.salida1||'--:--');
+        const tramo2 = (r.entrada2 || r.salida2) ? (' | ' + (r.entrada2||'--:--') + ' &rarr; ' + (r.salida2||'--:--')) : '';
         return '<div class="entry">'
           + '<div><span class="d">'+fmtFecha(f)+'</span></div>'
-          + '<div class="t">'+(r.entrada||'--:--')+' &rarr; '+(r.salida||'--:--')+'</div>'
+          + '<div class="t">'+tramo1+tramo2+'</div>'
           + '<button class="del" data-f="'+f+'" aria-label="Eliminar">&times;</button>'
           + '</div>';
       }).join('');
     }
     const tISO = todayISO();
     const t = records[tISO];
-    if(t && t.entrada && t.salida){
-      todayStatusEl.innerHTML = 'Hoy: <b>'+t.entrada+'</b> a <b>'+t.salida+'</b>';
-    } else if(t && t.entrada){
-      todayStatusEl.innerHTML = 'Hoy: entrada <b>'+t.entrada+'</b>, falta marcar salida';
+    if(t && t.entrada1 && t.salida1 && t.entrada2 && t.salida2){
+      todayStatusEl.innerHTML = 'Hoy: <b>'+t.entrada1+'</b>&rarr;<b>'+t.salida1+'</b> | <b>'+t.entrada2+'</b>&rarr;<b>'+t.salida2+'</b>';
+    } else if(t && t.entrada1 && t.salida1){
+      todayStatusEl.innerHTML = 'Mañana: <b>'+t.entrada1+'</b>&rarr;<b>'+t.salida1+'</b>. Falta el retorno del break.';
+    } else if(t && t.entrada1){
+      todayStatusEl.innerHTML = 'Hoy: entrada <b>'+t.entrada1+'</b>, falta marcar salida (break)';
     } else {
       todayStatusEl.innerHTML = 'Hoy: sin marcar todavía';
     }
@@ -281,33 +302,38 @@
     });
   }
 
-  document.getElementById('btnIn').onclick = ()=>{
+  function marcar(campo, mensaje){
     const f = todayISO();
     const rec = records[f] || {fecha:f};
-    rec.entrada = nowHM();
+    rec[campo] = nowHM();
     saveRecord(rec);
-    showToast('Entrada marcada: '+rec.entrada);
-  };
+    showToast(mensaje + ': ' + rec[campo]);
+  }
 
-  document.getElementById('btnOut').onclick = ()=>{
-    const f = todayISO();
-    const rec = records[f] || {fecha:f};
-    rec.salida = nowHM();
-    saveRecord(rec);
-    showToast('Salida marcada: '+rec.salida);
-  };
+  document.getElementById('btnIn1').onclick = ()=> marcar('entrada1', 'Entrada marcada');
+  document.getElementById('btnOut1').onclick = ()=> marcar('salida1', 'Salida a break marcada');
+  document.getElementById('btnIn2').onclick = ()=> marcar('entrada2', 'Retorno de break marcado');
+  document.getElementById('btnOut2').onclick = ()=> marcar('salida2', 'Salida final marcada');
 
   document.getElementById('btnGuardar').onclick = ()=>{
     const f = fechaEl.value;
     if(!f){ showToast('Elige una fecha primero.'); return; }
-    const rec = {fecha:f, entrada: entradaEl.value || '', salida: salidaEl.value || ''};
+    const rec = {
+      fecha: f,
+      entrada1: entrada1El.value || '',
+      salida1: salida1El.value || '',
+      entrada2: entrada2El.value || '',
+      salida2: salida2El.value || ''
+    };
     saveRecord(rec);
     showToast('Guardado '+fmtFecha(f));
   };
 
   document.getElementById('btnLimpiar').onclick = ()=>{
-    entradaEl.value = '';
-    salidaEl.value = '';
+    entrada1El.value = '';
+    salida1El.value = '';
+    entrada2El.value = '';
+    salida2El.value = '';
   };
 
   document.getElementById('btnExport').onclick = async ()=>{
@@ -316,7 +342,7 @@
 
     const text = dates.map(f=>{
       const r = records[f];
-      return fmtFecha(f) + '\t' + (r.entrada||'') + '\t' + (r.salida||'');
+      return fmtFecha(f) + '\t' + (r.entrada1||'') + '\t' + (r.salida1||'') + '\t' + (r.entrada2||'') + '\t' + (r.salida2||'');
     }).join('\n');
 
     let copied = false;
@@ -343,7 +369,7 @@
     }
 
     if(copied){
-      showToast('Copiado: '+dates.length+' registros.');
+      showToast('Copiado: '+dates.length+' registros (Fecha, Entrada, Salida-break, Retorno, Salida-final).');
     } else {
       exportBoxEl.style.display = 'block';
       exportTextEl.value = text;
@@ -363,14 +389,14 @@
       return;
     }
     const diasSemana = ['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
-    const rows = [["Fecha","Día","Hora Entrada","Hora Salida"]];
+    const rows = [["Fecha","Día","Entrada","Salida (break)","Retorno break","Salida final"]];
     dates.forEach(f=>{
       const r = records[f];
       const d = new Date(f + 'T00:00:00');
-      rows.push([fmtFecha(f), diasSemana[d.getDay()], r.entrada || '', r.salida || '']);
+      rows.push([fmtFecha(f), diasSemana[d.getDay()], r.entrada1 || '', r.salida1 || '', r.entrada2 || '', r.salida2 || '']);
     });
     const ws = XLSX.utils.aoa_to_sheet(rows);
-    ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:12}];
+    ws['!cols'] = [{wch:12},{wch:12},{wch:12},{wch:14},{wch:14},{wch:12}];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Registro");
     const hoy = todayISO();
